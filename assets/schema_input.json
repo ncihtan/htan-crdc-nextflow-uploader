@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/samplesheet.schema.json",
+  "title": "CRDC Uploader Samplesheet Schema",
+  "description": "Schema for validating rows in samplesheet.tsv for the CRDC uploader pipeline.",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "properties": {
+      "type": { "type": "string", "enum": ["file"] },
+
+      "study.phs_accession": {
+        "type": "string",
+        "pattern": "^phs\\d{6,}$"
+      },
+
+      "participant.study_participant_id": { "type": ["string", "null"] },
+
+      "sample.sample_id": { "type": ["string", "null"] },
+
+      "file_name": { "type": "string" },
+
+      "file_type": {
+        "type": "string",
+        "enum": ["BAM", "FASTQ", "TSV", "CSV", "CRAM", "VCF", "TXT"]
+      },
+
+      "file_description": { "type": ["string", "null"] },
+
+      "file_size": { "type": ["integer", "number", "string", "null"] },
+
+      "md5sum": {
+        "type": "string",
+        "pattern": "^[a-fA-F0-9]{32}$"
+      },
+
+      "experimental_strategy_and_data_subtypes": { "type": ["string", "null"] },
+
+      "submission_version": { "type": ["string", "number", "null"] },
+
+      "checksum_value": { "type": ["string", "null"] },
+
+      "checksum_algorithm": {
+        "type": ["string", "null"],
+        "enum": ["md5", "sha1", "sha256", null]
+      },
+
+      "file_mapping_level": { "type": ["string", "null"] },
+
+      "release_datetime": { "type": ["string", "null"], "format": "date-time" },
+
+      "is_supplementary_file": { "type": ["boolean", "string", "null"] },
+
+      "entityid": {
+        "type": "string",
+        "pattern": "^syn\\d+$"
+      }
+    },
+    "required": [
+      "type",
+      "study.phs_accession",
+      "file_name",
+      "file_type",
+      "file_size",
+      "md5sum",
+      "entityid"
+    ],
+    "additionalProperties": true
+  }
+}
+

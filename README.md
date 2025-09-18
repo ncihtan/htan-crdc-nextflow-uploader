@@ -47,8 +47,6 @@ This workflow uses Nextflow secrets to store credentials securely:
 | Field              | Required | Pattern    | Description                |                             |
 | ------------------ | -------- | ---------- | -------------------------- | --------------------------- |
 | entityId           | Yes      | `^syn\d+$` | Synapse entity ID          | `syn123456`                 |
-| file\_url\_in\_cds | Yes      | `^s3://.+` | Target CRDC S3 destination | `s3://cds-project/file.bam` |
-| project\_id        | Yes      | String     | CRDC project ID            | `phs002371`                 |
 
 Notes:
 

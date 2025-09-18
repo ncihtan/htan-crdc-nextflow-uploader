@@ -1,165 +1,129 @@
-# nf-cdstransfer
+# HTAN CRDC Data Uploader
 
 ## Overview
 
-This Nextflow workflow is designed to process a sample sheet (`samplesheet.csv`), retrieve files from Synapse based on `entityId`, and upload them to an AWS S3 bucket. 
+This Nextflow workflow automates the transfer of HTAN data files from Synapse into the CRDC Data Hub.
+It processes a sample sheet, downloads files from Synapse, generates metadata, and uploads the files to CRDC using the official uploader.
 
- [!NOTE]  
-The workflow consists of two main steps:
-
-1. **synapse_get**: Downloads the files from Synapse using the `entityId` from the sample sheet.
-3. **cds_upload**: Uploads the downloaded files to a specified AWS S3 bucket.
+The workflow is modular, enabling reproducible submission pipelines for HTAN centers.
 
 ### Example Usage
+
 ```bash
-nextflow run ncihtan/nf-cdstransfer --input samplesheet.csv
+nextflow run ncihtan/htan-crdc-nextflow-uploader --input samplesheet.csv
 ```
 
 ## Input
 
 ### Parameters
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| input | `str` | Path to input samplesheet CSV file containing entityId and aws_uri columns. Required. |
-| take_n | `int` | Number of samples to process from the samplesheet. Use -1 to process all samples. Default: `-1` |
-| dryrun | `bool` | If true, adds `--dryrun` flag to AWS copy commands for testing without actual file transfer. Default: `false` |
-| aws_secret_prefix | `str` | Prefix for AWS credential environment variables. Used to construct variable names like `${aws_secret_prefix}_AWS_ACCESS_KEY_ID`. Useful for managing multiple AWS credential sets. Default: `""` |
+| Parameter           | Type   | Description                                                                                   |
+| ------------------- | ------ | --------------------------------------------------------------------------------------------- |
+| input               | `str`  | Path to a samplesheet CSV/TSV containing entityId, project\_id, and file metadata. Required.  |
+| take\_n             | `int`  | Limit the number of rows processed from the samplesheet. Use `-1` for all rows. Default: `-1` |
+| dryrun              | `bool` | If true, runs uploader in dryrun mode (no files uploaded). Default: `false`                   |
+| bucket              | `str`  | CRDC target bucket/prefix to upload into. Required.                                           |
+| crdc\_config        | `str`  | Path to YAML configuration for CRDC uploader. Required.                                       |
+| aws\_secret\_prefix | `str`  | Prefix for AWS credential secrets (e.g., `CRDC`). Default: `""`                               |
 
 ## Workflow Details
 
 ### Overview
-The workflow transfers files from Synapse to CDS (Cloud Data Service) in three main steps:
-1. Read and parse input samplesheet
-2. Download files from Synapse
-3. Upload files to CDS S3 bucket
-4. Generate transfer report
+
+The workflow executes the following stages:
+
+1. **Parse samplesheet** – Reads Synapse entityIds and metadata.
+2. **synapse\_get** – Downloads files from Synapse.
+3. **prepare\_metadata** – Builds CRDC metadata TSVs/YAML from sample rows.
+4. **crdc\_upload** – Uploads data + metadata to CRDC S3 via the CLI uploader.
+5. **generate\_report** – Summarizes transfer success/failures.
 
 ### Secrets
 
-Nextflow secrets are used to ensure that tokens, keys and secrets are not exposed
+This workflow uses Nextflow secrets to store credentials securely:
 
-
-The following Nextflow secrets should be set:
-
-- `SYNAPSE_AUTH_TOKEN`: Synapse authentication token.
-- `<params.aws_secret_prefix>_AWS_ACCESS_KEY_ID`: AWS access key ID. eg `CDS_AWS_ACCESS_KEY_ID`
-- `<params.aws_secret_prefix>`: AWS secret access key. eg `CDS_AWS_SECRET_ACCESS_KEY`
-
-```
-nextflow secrets set SYNAPSE_AUTH_TOKEN <SUPER_SECRET_THING>
-```
-
+* `SYNAPSE_AUTH_TOKEN`: Synapse auth token.
+* `<aws_secret_prefix>_AWS_ACCESS_KEY_ID`: AWS access key ID.
+* `<aws_secret_prefix>_AWS_SECRET_ACCESS_KEY`: AWS secret access key.
+* `CRDC_TOKEN`: Authentication for CRDC uploader.
 
 ### Input Samplesheet Requirements
 
-| Field | Required | Pattern | Description | Example |
-|-------|----------|--------|-------------|---------|
-| entityId | Yes | `^syn\d+$` | Synapse entity ID starting with 'syn' followed by numbers | `syn123456` |
-| file_url_in_cds | Yes | `^s3://.+` | URL to the file location in AWS S3, must start with 's3://' | `s3://mybucket/path/to/file` |
+| Field              | Required | Pattern    | Description                |                             |
+| ------------------ | -------- | ---------- | -------------------------- | --------------------------- |
+| entityId           | Yes      | `^syn\d+$` | Synapse entity ID          | `syn123456`                 |
+| file\_url\_in\_cds | Yes      | `^s3://.+` | Target CRDC S3 destination | `s3://cds-project/file.bam` |
+| project\_id        | Yes      | String     | CRDC project ID            | `phs002371`                 |
 
 Notes:
-- Additional columns are allowed but not validated
-- Both fields are mapped internally:
-  - `entityId` → `entityid`
-  - `file_url_in_cds` → `aws_uri`
 
-### Configuration
+* Additional metadata columns (e.g. `Filename`, `HTAN_Data_File_ID`) are allowed.
+* These are used to construct CRDC manifests.
 
-#### Plugins Used
-The workflow uses the following plugins:
-- `nf-schema`: For parameter validation and schema management
-- `nf-boost`: For enhanced functionality and utilities
+## Default Settings
 
-## Default settings
+The included `nextflow.config` defines profiles:
 
-The included `nextflow.config` file specifies the following default options. These are used if not overridden by a custom config or profile.
-
-- `docker.enabled = true`
-
-#### Profiles
-The `nextflow.config` file defines several profiles to customize the workflow execution. Below are the available profiles and the parameters/settings they configure:
-
-| Setting / Profile         | test                        | CDS   | local  | docker | tower                   |
-|--------------------------|------------------------------|-------|--------|--------|-------------------------|
-| params.input             | $projectDir/samplesheet.csv  | -     | -      | -      | -                       |
-| params.aws_secret_prefix | TEST                         | CDS   | -      | -      | -                       |
-| params.dryrun            | true                         | -     | -      | -      | -                       |
-| docker.enabled           | true                         | true  | true   | true   | true                    |
-| process.executor         | local                        | -     | local  | -      | -                       |
-| process.cpus             |                              | -     | -      | -      | 1 * task.attempt        |
-| process.memory           |                              | -     | -      | -      | 1.GB * task.attempt     |
-| process.maxRetries       |                              | -     | -      | -      | 3                       |
-| process.errorStrategy    |                              | -     | -      | -      | retrys                  |
-
+| Profile | Description                                                         |
+| ------- | ------------------------------------------------------------------- |
+| test    | Runs with bundled test samplesheet and dryrun enabled               |
+| crdc    | Runs full CRDC submission with required credentials                 |
+| local   | Executes on local machine (no Docker)                               |
+| docker  | Executes in Docker with containers for Synapse and CRDC uploader    |
+| tower   | Configures retries, memory, and resource scaling for Nextflow Tower |
 
 ### Process 1: `synapse_get`
-Downloads files from Synapse using entityIds.
 
-#### Input
-- `meta`: Object containing `entityId` and `aws_uri`
+* **Input:** `entityId`, metadata row
+* **Output:** Local file path
+* **Dependencies:** Synapse Python client + `SYNAPSE_AUTH_TOKEN`
 
-#### Output
-- Tuple of (`meta`, downloaded file path)
+### Process 2: `prepare_metadata`
 
-#### Dependencies
-- Requires `SYNAPSE_AUTH_TOKEN` secret
-- Uses `synapsepythonclient` container
+* **Input:** Samplesheet row + downloaded file
+* **Output:** Metadata TSV/YAML for CRDC
 
-### Process 2: `cds_upload`
-Uploads downloaded files to CDS S3 bucket.
+### Process 3: `crdc_upload`
 
-#### Input
-- Tuple of (`meta`, file path) from `synapse_get`
+* **Input:** File path + metadata
+* **Output:** Upload success/failure status
+* **Dependencies:** AWS + CRDC credentials
 
-#### Output
-- Tuple of (`meta`, upload success boolean)
+### Reports
 
-#### Dependencies
-- Requires AWS credentials:
-  - `${aws_secret_prefix}_AWS_ACCESS_KEY_ID`
-  - `${aws_secret_prefix}_AWS_SECRET_ACCESS_KEY`
-- Uses AWS CLI container
+The workflow produces:
 
-#### Output
-No specific outputs are generated by the workflow.  
-By default a trace file is saved to `reports/trace.csv`
-
-
+* Transfer logs in `reports/`
+* Trace CSV for task monitoring
 
 ## Running the Workflow
 
 ### Prerequisites
-- Ensure Nextflow is installed.
-- Ensure you have access to the necessary containers (`synapseclient`, `awscli`).
-- Ensure you have the appropriate credentials for Synapse and AWS.
 
-### Example usage
+* Nextflow installed
+* Docker/Singularity (for containers)
+* Valid Synapse + AWS + CRDC credentials
 
-Run the workflow with the following command:
-
-```bash
-nextflow run ncihtan/nf-cdstransfer --input path/to/samplesheet.csv
-```
-
-Using the test profile will use `samplesheet.csv` when stored in your projectDir. Please generate your own samplesheet and use aws_secret_prefix `TEST` when setting your relevent AWS Nextflow secrets
+### Example
 
 ```bash
-nextflow run ncihtan/nf-cdstransfer -profile test
+nextflow run ncihtan/htan-crdc-nextflow-uploader --input samplesheet.csv --bucket s3://crdc-bucket
 ```
 
-To avoid having to reset secrets when moving between destination accounts you can set your secrets
-using a prefix
+Use `-profile test` to run a dryrun with provided test data:
 
 ```bash
-nextflow secrets set MYCREDS_AWS_ACCESS_KEY_ID
-nextflow secrets set MYCREDS_AWS_SECRET_ACCESS_KEY
-nextflow run ncihtan/nf-cdstransfer --aws_secret_prefix MYCREDS
+nextflow run ncihtan/htan-crdc-nextflow-uploader -profile test
 ```
 
-or use a configured profile in which params.aws_secret_prefix is set
+To run with a credential prefix:
 
 ```bash
-nextflow run ncihtan/nf-cdstransfer -profile CDS --input samplesheet.csv
+nextflow secrets set CRDC_AWS_ACCESS_KEY_ID <key>
+nextflow secrets set CRDC_AWS_SECRET_ACCESS_KEY <secret>
+nextflow run ncihtan/htan-crdc-nextflow-uploader --aws_secret_prefix CRDC
 ```
 
+---
+
+Do you want me to also generate a **side-by-side comparison table** between `nf-cdstransfer` and `htan-crdc-nextflow-uploader` so you can quickly see what’s different (extra steps, parameters, secrets)?

@@ -114,11 +114,6 @@ nextflow run ncihtan/htan-crdc-nextflow-uploader -profile test
 To run with a credential prefix:
 
 ```bash
-nextflow secrets set CRDC_AWS_ACCESS_KEY_ID <key>
-nextflow secrets set CRDC_AWS_SECRET_ACCESS_KEY <secret>
 nextflow run ncihtan/htan-crdc-nextflow-uploader --aws_secret_prefix CRDC
 ```
 
----
-
-Do you want me to also generate a **side-by-side comparison table** between `nf-cdstransfer` and `htan-crdc-nextflow-uploader` so you can quickly see what’s different (extra steps, parameters, secrets)?

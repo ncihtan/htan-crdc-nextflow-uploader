@@ -19,10 +19,8 @@ nextflow run ncihtan/htan-crdc-nextflow-uploader --input samplesheet.csv
 
 | Parameter           | Type   | Description                                                                                   |
 | ------------------- | ------ | --------------------------------------------------------------------------------------------- |
-| input               | `str`  | Path to a samplesheet CSV/TSV containing entityId, project\_id, and file metadata. Required.  |
-| take\_n             | `int`  | Limit the number of rows processed from the samplesheet. Use `-1` for all rows. Default: `-1` |
+| input               | `str`  | Path to a samplesheet TSV containing entityId, project\_id, and file metadata. Required.  |
 | dryrun              | `bool` | If true, runs uploader in dryrun mode (no files uploaded). Default: `false`                   |
-| bucket              | `str`  | CRDC target bucket/prefix to upload into. Required.                                           |
 | crdc\_config        | `str`  | Path to YAML configuration for CRDC uploader. Required.                                       |
 
 ## Workflow Details

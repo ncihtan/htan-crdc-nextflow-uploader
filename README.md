@@ -24,7 +24,6 @@ nextflow run ncihtan/htan-crdc-nextflow-uploader --input samplesheet.csv
 | dryrun              | `bool` | If true, runs uploader in dryrun mode (no files uploaded). Default: `false`                   |
 | bucket              | `str`  | CRDC target bucket/prefix to upload into. Required.                                           |
 | crdc\_config        | `str`  | Path to YAML configuration for CRDC uploader. Required.                                       |
-| aws\_secret\_prefix | `str`  | Prefix for AWS credential secrets (e.g., `CRDC`). Default: `""`                               |
 
 ## Workflow Details
 
@@ -43,8 +42,6 @@ The workflow executes the following stages:
 This workflow uses Nextflow secrets to store credentials securely:
 
 * `SYNAPSE_AUTH_TOKEN`: Synapse auth token.
-* `<aws_secret_prefix>_AWS_ACCESS_KEY_ID`: AWS access key ID.
-* `<aws_secret_prefix>_AWS_SECRET_ACCESS_KEY`: AWS secret access key.
 * `CRDC_TOKEN`: Authentication for CRDC uploader.
 
 ### Input Samplesheet Requirements
